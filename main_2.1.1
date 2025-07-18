@@ -1,0 +1,917 @@
+import nfc
+from typing import cast
+import openpyxl
+import xlwings
+import xlwings as xw
+import time
+from playsound import playsound
+import winsound
+import os
+import sys
+import subprocess
+import tkinter as tk
+from tkinter import messagebox
+import threading
+import datetime
+import math
+import configparser
+import usb.core
+import usb.util
+import webbrowser
+
+# pyinstallerでexe化する際のコマンド
+# pyinstaller main.py  --hidden-import 'nfc.clf.rcs380'
+
+global rogunorisutodayo
+global thread_uketuke
+rogunorisutodayo = []
+onetime_delay_invalid = 0
+onetime_delay_invalid_password_entory = ""
+print("Attendance_Check_System==>>Starting==>>Starting")
+rogunorisutodayo.append("Attendance_Check_System==>>Starting==>>Starting")
+print("ver 2.1.1")
+rogunorisutodayo.append("ver 2.1.1")
+print("!まだチェックは開始していません!")
+rogunorisutodayo.append("!まだチェックは開始していません!")
+print("「Excel開く」ボタンからExcelを開いて「受付開始」ボタンよりチェックを開始してください!")
+rogunorisutodayo.append("「Excel開く」ボタンからExcelを開いて「受付開始」ボタンよりチェックを開始してください!")
+root = tk.Tk()
+root.title("出席チェック ver 2.1.1")
+root.geometry("650x320")
+
+
+def excelopen():
+    config = configparser.ConfigParser()
+    config.read('config.ini', encoding='utf-8')
+    excel_path = config["other_setting"]["excel_path"]
+    subprocess.Popen(["start", "", rf"{excel_path}"], shell=True)
+
+
+def uketuke():
+    try:
+        global onetime_delay_invalid
+        print("")
+        rogunorisutodayo.append("")
+        print("受付開始")
+        rogunorisutodayo.append("受付開始")
+        # 受付開始時設定読み込み
+        config = configparser.ConfigParser()
+        config.read('config.ini', encoding='utf-8')
+        excel_path = config["other_setting"]["excel_path"]
+        donot_open_excel_path = config["other_setting"]["donot_open_excel_path"]
+        syscode_code = config["other_setting"]["syscode_code"]
+        servicecode_code = config["other_setting"]["servicecode_code"]
+        workbook = openpyxl.load_workbook(f"{donot_open_excel_path}")
+        worksheet = workbook["Sheet1"]
+        workbook_2 = xw.books(f"{excel_path}")
+        worksheet_2 = workbook_2.sheets["Sheet1"]
+        current_dir = os.getcwd()
+        # 音読み込み用パス
+        OK_path = current_dir + '/OK.mp3'
+        NG_path = current_dir + '/NG.mp3'
+        # setting = workbook_2.sheets["setting"]
+        # 遅刻設定読み込みと設定時刻確認
+        tikokukenti = int(config["Basic_setting"]["delay"])
+        tikokuhour = config["other_setting"]["delay_standard_hour"]
+        tikokuhour = str(tikokuhour)
+        tikokuminute = config["other_setting"]["delay_standard_minute"]
+        tikokuminute = str(tikokuminute)
+        print("受付開始時刻：{}".format(datetime.datetime.now()))
+        rogunorisutodayo.append("受付開始時刻：{}".format(datetime.datetime.now()))
+        tikokukijun = tikokuhour + tikokuminute
+        tikokukijun = int(tikokukijun)
+        print("遅刻検知設定:{}".format(tikokukenti))
+        rogunorisutodayo.append("遅刻検知設定:{}".format(tikokukenti))
+        print("遅刻基準時刻：{}".format(tikokukijun))
+        rogunorisutodayo.append("遅刻基準時刻：{}".format(tikokukijun))
+        tikoku_kirokuhouhou = int(config["delay_settei"]["howto_record"])
+        print("遅刻検知時記録方法：{}".format(tikoku_kirokuhouhou))
+        rogunorisutodayo.append("遅刻検知時記録方法：{}".format(tikoku_kirokuhouhou))
+        tikoku_zikan_touroku_1 = 5
+        tikoku_zikan_tourokuwariai_1 = float(config["delay_settei"]["5min_delay"])
+        tikoku_zikan_touroku_2 = 10
+        tikoku_zikan_tourokuwariai_2 = float(config["delay_settei"]["10min_delay"])
+        tikoku_zikan_touroku_3 = 15
+        tikoku_zikan_tourokuwariai_3 = float(config["delay_settei"]["15min_delay"])
+        tikoku_zikan_touroku_4 = 20
+        tikoku_zikan_tourokuwariai_4 = float(config["delay_settei"]["20min_delay"])
+        tikoku_zikan_tourokuwariai_5 = float(config["delay_settei"]["more_delay"])
+
+
+        # 設定読み込み
+        config = configparser.ConfigParser()
+        config.read('config.ini', encoding='utf-8')
+        tikokukenti = int(config["Basic_setting"]["delay"])
+        mitourokukukenti = int(config["Basic_setting"]["UnRegistered"])
+        kakikaekenti = int(config["Basic_setting"]["Rewriting"])
+        jouhousyousai = int(config["Basic_setting"]["detail_print"])
+        touch_sound = int(config["Basic_setting"]["touch_voice"])
+        tuikakirokuijou = int(config["Basic_setting"]["add_recording"])
+        uketuketyu_setting = int(config["Basic_setting"]["uketuketyu_setting"])
+        standby_time=float(config["other_setting"]["standby_time"])
+        kirokumozi = config["other_setting"]["record_character"]
+        tikoku_color_R = int(config["delay_settei"]["color_R"])
+        tikoku_color_G = int(config["delay_settei"]["color_G"])
+        tikoku_color_B = int(config["delay_settei"]["color_B"])
+        if kirokumozi.isdigit():
+            kirokumozi = int(kirokumozi)
+        else:
+            pass
+        print("未登録検知設定:{}".format(mitourokukukenti))
+        rogunorisutodayo.append("未登録検知設定:{}".format(mitourokukukenti))
+        print("書換検知設定:{}".format(kakikaekenti))
+        rogunorisutodayo.append("書換検知設定:{}".format(kakikaekenti))
+        print("追加記録異常検知設定:{}".format(tuikakirokuijou))
+        rogunorisutodayo.append("追加記録異常検知設定:{}".format(tuikakirokuijou))
+
+        # 未登録検知用リスト作成
+        mitourokukukenti_list=[]
+        for cell_1 in worksheet['B']:
+            mitourokukukenti_list.append(cell_1.value)
+
+
+        # 画面・エラー検知リセット
+        if start_option.get() == 1:
+            worksheet_2['C:D'].clear_contents()
+            worksheet_2['C:D'].color = 255, 255, 255
+        elif start_option.get() == 2:
+            pass
+        worksheet_2['H2'].value = ""
+        worksheet_2['H8'].value = ""
+        worksheet_2['J8'].color = 255, 255, 255
+        if tikokukenti == 0:
+            worksheet_2['F10'].color = 255, 255, 255
+        elif tikokukenti == 1:
+            worksheet_2['F10'].color = 0, 255, 0
+        else:
+            pass
+
+        if mitourokukukenti == 0:
+            worksheet_2['H10'].color = 255, 255, 255
+        elif mitourokukukenti == 1:
+            worksheet_2['H10'].color = 0, 255, 0
+        else:
+            pass
+        worksheet_2['H12'].color = 255, 255, 255
+
+        if kakikaekenti == 0:
+            worksheet_2['J10'].color = 255, 255, 255
+        elif kakikaekenti == 1:
+            worksheet_2['J10'].color = 0, 255, 0
+        else:
+            pass
+
+        if tuikakirokuijou == 0:
+            worksheet_2['F12'].color = 255, 255, 255
+        elif tuikakirokuijou == 1:
+            worksheet_2['F12'].color = 0, 255, 0
+        else:
+            pass
+        # touch音読み込み
+        with open('OK.wav', "rb") as file:
+            data = file.read()
+        clf = nfc.ContactlessFrontend("usb")
+        before_student_num = 0
+        while True:
+            try:
+                tag = clf.connect(rdwr={'on-connect': lambda tag: False})
+                # 処理中表示ON
+                worksheet_2['J8'].color = 0, 0, 255
+                if uketuketyu_setting == 1:
+                    config = configparser.ConfigParser()
+                    config.read('config.ini', encoding='utf-8')
+                    tikokukenti = int(config["Basic_setting"]["delay"])
+                    tikokuhour = config["other_setting"]["delay_standard_hour"]
+                    tikokuhour = str(tikokuhour)
+                    tikokuminute = config["other_setting"]["delay_standard_minute"]
+                    tikokuminute = str(tikokuminute)
+                    tikokukijun = tikokuhour + tikokuminute
+                    tikokukijun = int(tikokukijun)
+                    tikoku_kirokuhouhou = int(config["delay_settei"]["howto_record"])
+                    tikoku_zikan_touroku_1 = 5
+                    tikoku_zikan_tourokuwariai_1 = float(config["delay_settei"]["5min_delay"])
+                    tikoku_zikan_touroku_2 = 10
+                    tikoku_zikan_tourokuwariai_2 = float(config["delay_settei"]["10min_delay"])
+                    tikoku_zikan_touroku_3 = 15
+                    tikoku_zikan_tourokuwariai_3 = float(config["delay_settei"]["15min_delay"])
+                    tikoku_zikan_touroku_4 = 20
+                    tikoku_zikan_tourokuwariai_4 = float(config["delay_settei"]["20min_delay"])
+                    tikoku_zikan_tourokuwariai_5 = float(config["delay_settei"]["more_delay"])
+                    syscode_code = config["other_setting"]["syscode_code"]
+                    servicecode_code = config["other_setting"]["servicecode_code"]
+                    tikokukenti = int(config["Basic_setting"]["delay"])
+                    mitourokukukenti = int(config["Basic_setting"]["UnRegistered"])
+                    kakikaekenti = int(config["Basic_setting"]["Rewriting"])
+                    jouhousyousai = int(config["Basic_setting"]["detail_print"])
+                    touch_sound = int(config["Basic_setting"]["touch_voice"])
+                    tuikakirokuijou = int(config["Basic_setting"]["add_recording"])
+                    standby_time = float(config["other_setting"]["standby_time"])
+                    kirokumozi = config["other_setting"]["record_character"]
+                    tikoku_color_R = int(config["delay_settei"]["color_R"])
+                    tikoku_color_G = int(config["delay_settei"]["color_G"])
+                    tikoku_color_B = int(config["delay_settei"]["color_B"])
+
+                    if isinstance(kirokumozi, str):
+                        if kirokumozi.isdigit():
+                            kirokumozi = int(kirokumozi)
+                        else:
+                            pass
+                    else:
+                        pass
+                else:
+                    pass
+                touch_mae_count = worksheet_2['J12'].value
+                print("")
+                rogunorisutodayo.append("")
+                print("タッチ検知")
+                rogunorisutodayo.append("タッチ検知")
+                # sys_code = 0x8ACB
+                # service_code = 0x100B
+                sys_code = int(syscode_code,16)
+                service_code = int(servicecode_code,16)
+
+                idm, pmm = tag.polling(system_code=sys_code)
+                tag.idm, tag.pmm, tag.sys = idm, pmm, sys_code
+                sc = nfc.tag.tt3.ServiceCode(service_code >> 6, service_code & 0x3F)
+                bc = nfc.tag.tt3.BlockCode(0, service=0)
+                student_num = tag.read_without_encryption([sc], [bc])
+                # print(student_num)
+                student_num = student_num.decode("shift_jis")
+                student_num = student_num[-5:-1]
+                student_num = int(student_num)
+                print("学生番号：{}".format(student_num))
+                rogunorisutodayo.append("学生番号：{}".format(student_num))
+                for c in worksheet['B']:
+                    if c.value == student_num:
+                        cell_nloc = c.coordinate
+                        print("記録セル：{}".format(cell_nloc))
+                        rogunorisutodayo.append("記録セル：{}".format(cell_nloc))
+                        cell_row = openpyxl.utils.cell.coordinate_from_string(cell_nloc)[1]
+                        # print(cell_row)
+                        if mitourokukukenti == 1:
+                            worksheet_2['H10'].color = 0, 255, 0
+                        else:
+                            worksheet_2['H10'].color = 255, 255, 255
+                        break
+                    else:
+                        cell_row = 1000
+
+                    '''
+                    if c.value == 'END' and mitourokukukenti == 1:
+                        worksheet_2['H10'].color = 255, 0, 0
+                        print('未登録検知')
+                        rogunorisutodayo.append('未登録検知')
+                        playsound(NG_path)
+                        time.sleep(2)
+                        break
+                    '''
+
+                cell_row = cell_row - 1
+                # kakikomi_cell='C'+cell_row
+                # kakikomi_cell=range(kakikomi_cell)
+                now = datetime.datetime.now()
+                today = "{}/{}".format(now.month, now.day)
+                nowtime = "{:02}:{:02}".format(now.hour, now.minute)
+
+                if kirokumozi == "x/x":
+                    worksheet_2[cell_row, 2].value = today
+                elif kirokumozi == "x:x":
+                    worksheet_2[cell_row, 2].value = nowtime
+                else:
+                    worksheet_2[cell_row, 2].value = kirokumozi
+                worksheet_2[cell_row, 3].value = nowtime
+                worksheet_2['H2'].value = student_num
+                print("打刻時刻:{}時{}分".format(now.hour, now.minute))
+                rogunorisutodayo.append("打刻時刻:{}時{}分".format(now.hour, now.minute))
+
+
+                # 遅刻検知・登録部
+                if tikokukenti == 1 and onetime_delay_invalid == 0:
+                    worksheet_2['H12'].color = 255, 255, 255
+                    hour = "{:02}".format(now.hour)
+                    hour = str(hour)
+                    minute = "{:02}".format(now.minute)
+                    minute = str(minute)
+                    zikoku = hour + minute
+                    zikoku = int(zikoku)
+                    if tikokukijun < zikoku:
+                        print("遅刻")
+                        rogunorisutodayo.append("遅刻")
+                        worksheet_2['F10'].color = 255, 165, 0
+                        if tikoku_kirokuhouhou == 0:
+                            worksheet_2[cell_row, 2].color = tikoku_color_R, tikoku_color_G, tikoku_color_B
+                            worksheet_2['F10'].color = 255, 165, 0
+                        elif tikoku_kirokuhouhou == 1:
+                            tikoku_time = zikoku - tikokukijun
+                            kirokumozi=int(kirokumozi)
+                            if tikoku_time <= tikoku_zikan_touroku_1:
+                                worksheet_2[cell_row, 2].value = kirokumozi * tikoku_zikan_tourokuwariai_1
+                            elif tikoku_time <= tikoku_zikan_touroku_2:
+                                worksheet_2[cell_row, 2].value = kirokumozi * tikoku_zikan_tourokuwariai_2
+                            elif tikoku_time <= tikoku_zikan_touroku_3:
+                                worksheet_2[cell_row, 2].value = kirokumozi * tikoku_zikan_tourokuwariai_3
+                            elif tikoku_time <= tikoku_zikan_touroku_4:
+                                worksheet_2[cell_row, 2].value = kirokumozi * tikoku_zikan_tourokuwariai_4
+                            elif tikoku_time > tikoku_zikan_touroku_4:
+                                worksheet_2[cell_row, 2].value = kirokumozi * tikoku_zikan_tourokuwariai_5
+                        elif tikoku_kirokuhouhou == 2:
+                            worksheet_2[cell_row, 2].color = tikoku_color_R, tikoku_color_G, tikoku_color_B
+                            worksheet_2['F10'].color = 255, 165, 0
+                            tikoku_time = zikoku - tikokukijun
+                            kirokumozi = int(kirokumozi)
+                            if tikoku_time <= tikoku_zikan_touroku_1:
+                                worksheet_2[cell_row, 2].value = kirokumozi * tikoku_zikan_tourokuwariai_1
+                            elif tikoku_time <= tikoku_zikan_touroku_2:
+                                worksheet_2[cell_row, 2].value = kirokumozi * tikoku_zikan_tourokuwariai_2
+                            elif tikoku_time <= tikoku_zikan_touroku_3:
+                                worksheet_2[cell_row, 2].value = kirokumozi * tikoku_zikan_tourokuwariai_3
+                            elif tikoku_time <= tikoku_zikan_touroku_4:
+                                worksheet_2[cell_row, 2].value = kirokumozi * tikoku_zikan_tourokuwariai_4
+                            elif tikoku_time > tikoku_zikan_touroku_4:
+                                worksheet_2[cell_row, 2].value = kirokumozi * tikoku_zikan_tourokuwariai_5
+
+                        else:
+                            pass
+                    elif tikokukijun >= zikoku:
+                        print("出席")
+                        rogunorisutodayo.append("出席")
+                        worksheet_2[cell_row, 2].color = 255, 255, 255
+                        worksheet_2['F10'].color = 0, 255, 0
+                else:
+                    worksheet_2[cell_row, 2].color = 255, 255, 255
+                    worksheet_2['F10'].color = 255, 255, 255
+                    if onetime_delay_invalid==1:
+                        worksheet_2['H12'].color = 255, 165, 0
+                        print("遅刻一時無効操作により遅刻検知をオフにしています")
+                        rogunorisutodayo.append("遅刻一時無効操作により遅刻検知をオフにしています")
+
+                if mitourokukukenti==1:
+                    if student_num in mitourokukukenti_list:
+                        pass
+                    else:
+                        worksheet_2['H10'].color = 255, 0, 0
+                        print('未登録検知')
+                        rogunorisutodayo.append('未登録検知')
+                        playsound(NG_path)
+                else:
+                    pass
+
+                if kakikaekenti == 1:
+                    ws2_student_num = worksheet_2[cell_row, 1].value
+                    if student_num != ws2_student_num:
+                        print("書き換え検知")
+                        rogunorisutodayo.append("書き換え検知")
+                        worksheet_2['J10'].color = 255, 0, 0
+                        era = 1
+                    elif student_num == ws2_student_num:
+                        worksheet_2['J10'].color = 0, 255, 0
+                        era = 0
+                elif kakikaekenti == 0:
+                    worksheet_2['J10'].color = 255, 255, 255
+                    era = 0
+
+                if jouhousyousai == 1:
+                    print(tag)
+                    print(('  \n  '.join(tag.dump())))
+
+                touch_time = "{:02}:{:02}".format(now.hour, now.minute)
+                worksheet_2['H8'].value = touch_time
+
+                touch_ato_count = worksheet_2['J12'].value
+                if touch_ato_count == touch_mae_count + 1 and tuikakirokuijou == 1:
+                    worksheet_2['F12'].color = 0, 255, 0
+                    era = 0
+                elif before_student_num == student_num:
+                    pass
+                elif touch_ato_count != touch_mae_count + 1 and tuikakirokuijou == 1:
+                    worksheet_2['F12'].color = 255, 0, 0
+                    print("追加記録異常")
+                    rogunorisutodayo.append("追加記録異常")
+                    era = 1
+                elif tuikakirokuijou == 0:
+                    worksheet_2['F12'].color = 255, 255, 255
+
+                if era == 0 and touch_sound == 1:
+                    # playsound(OK_path)
+                    winsound.PlaySound(data, winsound.SND_MEMORY)
+                elif era == 1 and touch_sound == 1:
+                    playsound(NG_path)
+                elif touch_sound == 0:
+                    pass
+                # worksheet.cell(row=cell_row,column=3,value='1')
+                before_student_num = student_num
+                onetime_delay_invalid = 0
+                time.sleep(standby_time)
+
+            except nfc.tag.tt3.Type3TagCommandError:
+                a = 1
+
+            except KeyboardInterrupt:
+                a = 2
+            except AttributeError:
+                print("機器未接続")
+            except Exception as err:
+                print("エラー検知：{}".format(err))
+            # 処理中表示OFF
+            worksheet_2['J8'].color = 255, 255, 255
+    except nfc.tag.tt3.Type3TagCommandError:
+        print("再度「受付開始」ボタンを押してください")
+    except xlwings.XlwingsError:
+        messagebox.showerror("Excel読み取りエラー", "「Excel開く」ボタンを押してから受付開始ボタンを押してください。")
+    except Exception as err:
+        print("エラー検知：{}".format(err))
+
+
+def kaisi_manage(frame2, uketuke_label):
+    thread_uketuke = threading.Thread(target=uketuke, daemon=True)
+    thread_uketuke.start()
+    while True:
+        if thread_uketuke.is_alive() == True:
+            uketuke_mozi = "受付中"
+            backgroundcolor = "#0000ff"
+        elif thread_uketuke.is_alive() == False:
+            uketuke_mozi = "受付停止"
+            backgroundcolor = "#ff0000"
+        uketuke_label = tk.Label(frame2, text=uketuke_mozi, font=("MSゴシック", 60), bg=backgroundcolor, fg="#ffffff",
+                                 width=7).grid(column=0, row=4, columnspan=4)
+        time.sleep(2)
+
+
+def jump(frame2, uketuke_label):
+    thread_uketuke_manage = threading.Thread(target=kaisi_manage, daemon=True, args=(frame2, uketuke_label))
+    thread_uketuke_manage.start()
+
+
+def close():
+    if not os.path.exists("logdata"):
+        os.makedirs("logdata")
+    log_date = datetime.datetime.now()
+    log_date = "logdata/{}{:02}{:02}.txt".format(log_date.year, log_date.month, log_date.day)
+    filepath = log_date
+    print("")
+    rogunorisutodayo.append("")
+    print("受付終了")
+    rogunorisutodayo.append("受付終了")
+    print("終了時刻：{}".format(datetime.datetime.now()))
+    rogunorisutodayo.append("終了時刻：{}".format(datetime.datetime.now()))
+    with open(filepath, "a", encoding="utf-8") as f:
+        f.writelines([d + "\n" for d in rogunorisutodayo])
+    sys.exit()
+
+
+def setting():
+    global delay_config
+    global UnReginstered_config
+    global Rewriting_config
+    global detail_print_config
+    global touch_voice_config
+    global add_recording_config
+    global uketuketyu_setting_config
+    global syscode_config
+    global servicecode_config
+    global standby_time_config
+    global excel_path_config
+    global donot_open_excel_path_config
+    global howto_record_config
+    global color_R_config
+    global color_G_config
+    global color_B_config
+    global five_min_delay_config
+    global ten_min_delay_config
+    global fifteen_min_delay_config
+    global twenty_min_delay_config
+    global more_delay_config
+    config = configparser.ConfigParser()
+    config.read('config.ini', encoding='utf-8')
+    delay = config["Basic_setting"]["delay"]
+    UnReginstered = config["Basic_setting"]["UnRegistered"]
+    Rewriting = config["Basic_setting"]["Rewriting"]
+    detail_print = config["Basic_setting"]["detail_print"]
+    touch_voice = config["Basic_setting"]["touch_voice"]
+    add_recording = config["Basic_setting"]["add_recording"]
+    uketuketyu_setting = config["Basic_setting"]["uketuketyu_setting"]
+    delay_hour = config["other_setting"]["delay_standard_hour"]
+    delay_minute = config["other_setting"]["delay_standard_minute"]
+    record_character = config["other_setting"]["record_character"]
+    syscode_code = config["other_setting"]["syscode_code"]
+    servicecode_code = config["other_setting"]["servicecode_code"]
+    standby_time=config["other_setting"]["standby_time"]
+    excel_path = config["other_setting"]["excel_path"]
+    donot_open_excel_path = config["other_setting"]["donot_open_excel_path"]
+    howto_record = config["delay_settei"]["howto_record"]
+    color_R = config["delay_settei"]["color_R"]
+    color_G = config["delay_settei"]["color_G"]
+    color_B = config["delay_settei"]["color_B"]
+    five_min_delay = config["delay_settei"]["5min_delay"]
+    ten_min_delay = config["delay_settei"]["10min_delay"]
+    fifteen_min_delay = config["delay_settei"]["15min_delay"]
+    twenty_min_delay = config["delay_settei"]["20min_delay"]
+    more_delay = config["delay_settei"]["more_delay"]
+    setting_window = tk.Toplevel(root)
+    setting_window.title("設定画面")
+    setting_window.geometry("750x400")
+    tk.Label(setting_window, text="基本設定", font=("MSゴシック", 12)).grid(column=0, row=0, columnspan=3)
+    tk.Label(setting_window, text="遅刻検知", font=("MSゴシック", 12)).grid(column=0, row=1)
+    delay_config = tk.IntVar()
+    delay_config.set(int(delay))
+    radiobutton3 = tk.Radiobutton(setting_window, font=("MSゴシック", 12), text="ON", variable=delay_config, value=1)
+    radiobutton3.grid(column=1, row=1, sticky=tk.W)
+    radiobutton4 = tk.Radiobutton(setting_window, font=("MSゴシック", 12), text="OFF", variable=delay_config, value=0)
+    radiobutton4.grid(column=2, row=1, sticky=tk.W)
+    tk.Label(setting_window, text="未登録検知", font=("MSゴシック", 12)).grid(column=0, row=2)
+    UnReginstered_config = tk.IntVar()
+    UnReginstered_config.set(int(UnReginstered))
+    radiobutton5 = tk.Radiobutton(setting_window, font=("MSゴシック", 12), text="ON", variable=UnReginstered_config,
+                                  value=1)
+    radiobutton5.grid(column=1, row=2, sticky=tk.W)
+    radiobutton6 = tk.Radiobutton(setting_window, font=("MSゴシック", 12), text="OFF", variable=UnReginstered_config,
+                                  value=0)
+    radiobutton6.grid(column=2, row=2, sticky=tk.W)
+    tk.Label(setting_window, text="書換検知", font=("MSゴシック", 12)).grid(column=0, row=3)
+    Rewriting_config = tk.IntVar()
+    Rewriting_config.set(int(Rewriting))
+    radiobutton7 = tk.Radiobutton(setting_window, font=("MSゴシック", 12), text="ON", variable=Rewriting_config,
+                                  value=1)
+    radiobutton7.grid(column=1, row=3, sticky=tk.W)
+    radiobutton8 = tk.Radiobutton(setting_window, font=("MSゴシック", 12), text="OFF", variable=Rewriting_config,
+                                  value=0)
+    radiobutton8.grid(column=2, row=3, sticky=tk.W)
+    tk.Label(setting_window, text="情報詳細標準出力", font=("MSゴシック", 12)).grid(column=0, row=4)
+    detail_print_config = tk.IntVar()
+    detail_print_config.set(int(detail_print))
+    radiobutton9 = tk.Radiobutton(setting_window, font=("MSゴシック", 12), text="ON", variable=detail_print_config,
+                                  value=1)
+    radiobutton9.grid(column=1, row=4, sticky=tk.W)
+    radiobutton10 = tk.Radiobutton(setting_window, font=("MSゴシック", 12), text="OFF", variable=detail_print_config,
+                                   value=0)
+    radiobutton10.grid(column=2, row=4, sticky=tk.W)
+    tk.Label(setting_window, text="タッチ音出力", font=("MSゴシック", 12)).grid(column=0, row=5)
+    touch_voice_config = tk.IntVar()
+    touch_voice_config.set(int(touch_voice))
+    radiobutton11 = tk.Radiobutton(setting_window, font=("MSゴシック", 12), text="ON", variable=touch_voice_config,
+                                   value=1)
+    radiobutton11.grid(column=1, row=5, sticky=tk.W)
+    radiobutton12 = tk.Radiobutton(setting_window, font=("MSゴシック", 12), text="OFF", variable=touch_voice_config,
+                                   value=0)
+    radiobutton12.grid(column=2, row=5, sticky=tk.W)
+    tk.Label(setting_window, text="追加記録異常", font=("MSゴシック", 12)).grid(column=0, row=6)
+    add_recording_config = tk.IntVar()
+    add_recording_config.set(int(add_recording))
+    radiobutton13 = tk.Radiobutton(setting_window, font=("MSゴシック", 12), text="ON", variable=add_recording_config,
+                                   value=1)
+    radiobutton13.grid(column=1, row=6, sticky=tk.W)
+    radiobutton14 = tk.Radiobutton(setting_window, font=("MSゴシック", 12), text="OFF", variable=add_recording_config,
+                                   value=0)
+    radiobutton14.grid(column=2, row=6, sticky=tk.W)
+    tk.Label(setting_window, text="受付中設定読込", font=("MSゴシック", 12)).grid(column=0, row=7)
+    uketuketyu_setting_config = tk.IntVar()
+    uketuketyu_setting_config.set(int(uketuketyu_setting))
+    radiobutton15 = tk.Radiobutton(setting_window, font=("MSゴシック", 12), text="ON", variable=uketuketyu_setting_config,
+                                   value=1)
+    radiobutton15.grid(column=1, row=7, sticky=tk.W)
+    radiobutton16 = tk.Radiobutton(setting_window, font=("MSゴシック", 12), text="OFF", variable=uketuketyu_setting_config,
+                                   value=0)
+    radiobutton16.grid(column=2, row=7, sticky=tk.W)
+    tk.Label(setting_window, text="遅刻時刻(時：分)", font=("MSゴシック", 12)).grid(column=0, row=8)
+    delay_hour_config = tk.StringVar()
+    delay_hour_config.set(delay_hour)
+    delay_hour_Entry = tk.Entry(setting_window, width=5, textvariable=delay_hour_config).grid(column=1, row=8)
+    delay_minute_config = tk.StringVar()
+    delay_minute_config.set(delay_minute)
+    delay_minute_Entry = tk.Entry(setting_window, width=5, textvariable=delay_minute_config).grid(column=2, row=8)
+    tk.Label(setting_window, text="記録文字", font=("MSゴシック", 12)).grid(column=0, row=9)
+    record_character_config = tk.StringVar()
+    record_character_config.set(record_character)
+    record_character_Entry = tk.Entry(setting_window, width=15, textvariable=record_character_config).grid(column=1,
+                                                                                                           columnspan=2,
+                                                                                                           row=9)
+    tk.Label(setting_window, text="syscode", font=("MSゴシック", 12)).grid(column=0, row=10)
+    syscode_config = tk.StringVar()
+    syscode_config.set(syscode_code)
+    syscode_Entry = tk.Entry(setting_window, width=15, textvariable=syscode_config).grid(column=1, columnspan=2, row=10)
+    tk.Label(setting_window, text="servicecode", font=("MSゴシック", 12)).grid(column=0, row=11)
+    servicecode_config = tk.StringVar()
+    servicecode_config.set(servicecode_code)
+    syscode_Entry = tk.Entry(setting_window, width=15, textvariable=servicecode_config).grid(column=1, columnspan=2,
+                                                                                             row=11)
+    tk.Label(setting_window, text="待機時間[秒]", font=("MSゴシック", 12)).grid(column=0, row=12)
+    standby_time_config = tk.StringVar()
+    standby_time_config.set(standby_time)
+    standby_time_Entry = tk.Entry(setting_window, width=15, textvariable=standby_time_config).grid(column=1, columnspan=2,
+                                                                                               row=12)
+    tk.Label(setting_window, text="通常Excelパス", font=("MSゴシック", 12)).grid(column=0, row=13)
+    excel_path_config = tk.StringVar()
+    excel_path_config.set(excel_path)
+    excel_path_Entry = tk.Entry(setting_window, width=15, textvariable=excel_path_config).grid(column=1, columnspan=2,
+                                                                                               row=13)
+    tk.Label(setting_window, text="名簿Excelパス", font=("MSゴシック", 12)).grid(column=0, row=14)
+    donot_open_excel_path_config = tk.StringVar()
+    donot_open_excel_path_config.set(donot_open_excel_path)
+    donot_open_excel_path_Entry = tk.Entry(setting_window, width=15, textvariable=donot_open_excel_path_config).grid(
+        column=1, columnspan=2,
+        row=14)
+    tk.Label(setting_window, text="遅刻特殊設定", font=("MSゴシック", 12)).grid(column=3, row=0, columnspan=4)
+    tk.Label(setting_window, text="記録方法", font=("MSゴシック", 12)).grid(column=3, row=1)
+    howto_record_config = tk.IntVar()
+    howto_record_config.set(int(howto_record))
+    radiobutton15 = tk.Radiobutton(setting_window, font=("MSゴシック", 12), text="色変更", variable=howto_record_config,
+                                   value=0)
+    radiobutton15.grid(column=4, row=1, sticky=tk.W)
+    radiobutton16 = tk.Radiobutton(setting_window, font=("MSゴシック", 12), text="数値変更", variable=howto_record_config,
+                                   value=1)
+    radiobutton16.grid(column=5, row=1, sticky=tk.W)
+    radiobutton17 = tk.Radiobutton(setting_window, font=("MSゴシック", 12), text="色・数値変更",
+                                   variable=howto_record_config,
+                                   value=2)
+    radiobutton17.grid(column=6, row=1, sticky=tk.W)
+    tk.Label(setting_window, text="色設定(R,G,B)", font=("MSゴシック", 12)).grid(column=3, row=2)
+    color_R_config = tk.StringVar()
+    color_R_config.set(color_R)
+    color_R_Entry = tk.Entry(setting_window, width=7, textvariable=color_R_config).grid(column=4, row=2)
+    color_G_config = tk.StringVar()
+    color_G_config.set(color_G)
+    color_G_Entry = tk.Entry(setting_window, width=7, textvariable=color_G_config).grid(column=5, row=2)
+    color_B_config = tk.StringVar()
+    color_B_config.set(color_B)
+    color_B_Entry = tk.Entry(setting_window, width=7, textvariable=color_B_config).grid(column=6, row=2)
+    tk.Label(setting_window, text="数値登録割合(5分)", font=("MSゴシック", 12)).grid(column=3, row=3)
+    five_min_delay_config = tk.StringVar()
+    five_min_delay_config.set(five_min_delay)
+    five_min_delay_Entry = tk.Entry(setting_window, width=7, textvariable=five_min_delay_config).grid(column=4, row=3)
+    tk.Label(setting_window, text="数値登録割合(10分)", font=("MSゴシック", 12)).grid(column=3, row=4)
+    ten_min_delay_config = tk.StringVar()
+    ten_min_delay_config.set(ten_min_delay)
+    ten_min_delay_Entry = tk.Entry(setting_window, width=7, textvariable=ten_min_delay_config).grid(column=4, row=4)
+    tk.Label(setting_window, text="数値登録割合(15分)", font=("MSゴシック", 12)).grid(column=3, row=5)
+    fifteen_min_delay_config = tk.StringVar()
+    fifteen_min_delay_config.set(fifteen_min_delay)
+    fifteen_min_delay_Entry = tk.Entry(setting_window, width=7, textvariable=fifteen_min_delay_config).grid(column=4,
+                                                                                                            row=5)
+    tk.Label(setting_window, text="数値登録割合(20分)", font=("MSゴシック", 12)).grid(column=3, row=6)
+    twenty_min_delay_config = tk.StringVar()
+    twenty_min_delay_config.set(twenty_min_delay)
+    twenty_min_delay_Entry = tk.Entry(setting_window, width=7, textvariable=twenty_min_delay_config).grid(column=4,
+                                                                                                          row=6)
+    tk.Label(setting_window, text="数値登録割合(↑以上)", font=("MSゴシック", 12)).grid(column=3, row=7)
+    more_delay_config = tk.StringVar()
+    more_delay_config.set(more_delay)
+    more_delay_Entry = tk.Entry(setting_window, width=7, textvariable=more_delay_config).grid(column=4, row=7)
+    tk.Button(setting_window, text="保存",
+              command=lambda: config_write(delay_config, UnReginstered_config, Rewriting_config, detail_print_config,
+                                           touch_voice_config, add_recording_config, uketuketyu_setting_config, delay_hour_config,
+                                           delay_minute_config, record_character_config, syscode_config,
+                                           servicecode_config,
+                                           standby_time_config,
+                                           excel_path_config,
+                                           donot_open_excel_path_config, howto_record_config,
+                                           color_R_config, color_G_config, color_B_config, five_min_delay_config,
+                                           ten_min_delay_config, fifteen_min_delay_config, twenty_min_delay_config,
+                                           more_delay_config), font=("MSゴシック", 15)).grid(column=0, row=15, columnspan=7)
+
+
+def config_write(delay_config, UnReginstered_config, Rewriting_config, detail_print_config, touch_voice_config,
+                 add_recording_config, uketuketyu_setting_config, delay_hour_config, delay_minute_config, record_character_config,
+                 syscode_code_config, servicecode_config, standby_time_config, excel_path_config, donot_open_excel_path_config,
+                 howto_record_config, color_R_config, color_G_config, color_B_config, five_min_delay_config,
+                 ten_min_delay_config, fifteen_min_delay_config, twenty_min_delay_config, more_delay_config):
+    delay_config = delay_config.get()
+    UnReginstered_config = UnReginstered_config.get()
+    Rewriting_config = Rewriting_config.get()
+    detail_print_config = detail_print_config.get()
+    touch_voice_config = touch_voice_config.get()
+    add_recording_config = add_recording_config.get()
+    uketuketyu_setting_config = uketuketyu_setting_config.get()
+    delay_hour_config = delay_hour_config.get()
+    delay_minute_config = delay_minute_config.get()
+    record_character_config = record_character_config.get()
+    syscode_code_config = syscode_code_config.get()
+    standby_time_config = standby_time_config.get()
+    excel_path_config = excel_path_config.get()
+    donot_open_excel_path_config = donot_open_excel_path_config.get()
+    servicecode_config = servicecode_config.get()
+    howto_record_config = howto_record_config.get()
+    color_R_config = color_R_config.get()
+    color_G_config = color_G_config.get()
+    color_B_config = color_B_config.get()
+    five_min_delay_config = five_min_delay_config.get()
+    ten_min_delay_config = ten_min_delay_config.get()
+    fifteen_min_delay_config = fifteen_min_delay_config.get()
+    twenty_min_delay_config = twenty_min_delay_config.get()
+    more_delay_config = more_delay_config.get()
+    config = configparser.ConfigParser()
+    config.read('config.ini', encoding='utf-8')
+    config["Basic_setting"]["delay"] = str(delay_config)
+    config["Basic_setting"]["UnRegistered"] = str(UnReginstered_config)
+    config["Basic_setting"]["Rewriting"] = str(Rewriting_config)
+    config["Basic_setting"]["detail_print"] = str(detail_print_config)
+    config["Basic_setting"]["touch_voice"] = str(touch_voice_config)
+    config["Basic_setting"]["add_recording"] = str(add_recording_config)
+    config["Basic_setting"]["uketuketyu_setting"] = str(uketuketyu_setting_config)
+    config["other_setting"]["delay_standard_hour"] = str(delay_hour_config)
+    config["other_setting"]["delay_standard_minute"] = str(delay_minute_config)
+    config["other_setting"]["record_character"] = str(record_character_config)
+    config["other_setting"]["syscode_code"] = str(syscode_code_config)
+    config["other_setting"]["servicecode_code"] = str(servicecode_config)
+    config["other_setting"]["standby_time"]=str(standby_time_config)
+    config["other_setting"]["excel_path"] = str(excel_path_config)
+    config["other_setting"]["donot_open_excel_path"] = str(donot_open_excel_path_config)
+    config["delay_settei"]["howto_record"] = str(howto_record_config)
+    config["delay_settei"]["color_R"] = str(color_R_config)
+    config["delay_settei"]["color_G"] = str(color_G_config)
+    config["delay_settei"]["color_B"] = str(color_B_config)
+    config["delay_settei"]["5min_delay"] = str(five_min_delay_config)
+    config["delay_settei"]["10min_delay"] = str(ten_min_delay_config)
+    config["delay_settei"]["15min_delay"] = str(fifteen_min_delay_config)
+    config["delay_settei"]["20min_delay"] = str(twenty_min_delay_config)
+    config["delay_settei"]["more_delay"] = str(more_delay_config)
+    # 設定値エラー確認
+    error_count=0
+    if delay_hour_config.isdigit():
+        if 0 <= int(delay_hour_config) <= 24:
+            pass
+        else:
+            print("遅刻基準時刻(時)が入力範囲外です。(0～24)")
+            error_count = error_count + 1
+    else:
+        print("遅刻基準時刻(時)には数値を設定してください。")
+        error_count = error_count + 1
+    if delay_hour_config.isdigit():
+        if 0 <= int(delay_hour_config) <= 59:
+            pass
+        else:
+            print("遅刻基準時刻(分)が入力範囲外です。(0～59)")
+            error_count = error_count + 1
+    else:
+        print("遅刻基準時刻(分)には数値を設定してください。")
+        error_count = error_count + 1
+
+    try:
+        float(standby_time_config)
+    except ValueError:
+        print("待機時間が正しく設定されていません。")
+        error_count = error_count + 1
+    else:
+        pass
+    if os.path.isfile(excel_path_config):
+        pass
+    else:
+        print("通常Excelパスで設定したExcelファイルが存在しません。")
+        error_count = error_count + 1
+    if os.path.isfile(donot_open_excel_path_config):
+        pass
+    else:
+        print("名簿Excelパスで設定したExcelファイルが存在しません。")
+        error_count = error_count + 1
+    if color_R_config.isdigit():
+        if 0 <= int(color_R_config) <= 255:
+            pass
+        else:
+            print("遅刻色設定(赤)が入力範囲外です。(0～255)")
+            error_count = error_count + 1
+    else:
+        print("遅刻色設定(赤)には数値を設定してください。")
+        error_count = error_count + 1
+    if color_G_config.isdigit():
+        if 0 <= int(color_G_config) <= 255:
+            pass
+        else:
+            print("遅刻色設定(緑)が入力範囲外です。(0～255)")
+            error_count = error_count + 1
+    else:
+        print("遅刻色設定(緑)には数値を設定してください。")
+        error_count = error_count + 1
+    if color_B_config.isdigit():
+        if 0 <= int(color_B_config) <= 255:
+            pass
+        else:
+            print("遅刻色設定(青)が入力範囲外です。(0～255)")
+            error_count = error_count + 1
+    else:
+        print("遅刻色設定(青)には数値を設定してください。")
+        error_count = error_count + 1
+
+    try:
+        float(five_min_delay_config)
+    except ValueError:
+        print("遅刻登録割合(5分)が正しく設定されていません。")
+        error_count = error_count + 1
+    else:
+        pass
+    try:
+        float(ten_min_delay_config)
+    except ValueError:
+        print("遅刻登録割合(10分)が正しく設定されていません。")
+        error_count = error_count + 1
+    else:
+        pass
+    try:
+        float(fifteen_min_delay_config)
+    except ValueError:
+        print("遅刻登録割合(15分)が正しく設定されていません。")
+        error_count = error_count + 1
+    else:
+        pass
+    try:
+        float(twenty_min_delay_config)
+    except ValueError:
+        print("遅刻登録割合(20分)が正しく設定されていません。")
+        error_count = error_count + 1
+    else:
+        pass
+    try:
+        float(more_delay_config)
+    except ValueError:
+        print("遅刻登録割合(↑以上)が正しく設定されていません。")
+        error_count = error_count + 1
+    else:
+        pass
+    if int(howto_record_config)==0:
+        pass
+    else:
+        if record_character_config.isdigit():
+            pass
+        else:
+            print("記録文字設定が文字列の場合、記録方法設定は「色変更」以外選択できません。")
+            error_count=error_count+1
+
+    if error_count == 0:
+        with open("config.ini", "w") as file:
+            config.write(file)
+        messagebox.showinfo("設定保存", "設定を保存しました。")
+        print("設定を保存しました。")
+    else:
+        messagebox.showerror("設定値エラー", f"{error_count}個のエラーが検出されました。設定を直してください。")
+
+def itizi_tikoku_mukou(input_onetime_delay_invalid_password,onetime_delay_invalid_window):
+    onetime_delay_invalid_window.destroy()
+    input_onetime_delay_invalid_password=input_onetime_delay_invalid_password.get()
+    config = configparser.ConfigParser()
+    config.read('config.ini', encoding='utf-8')
+    rule_onetime_delay_invalid_password = config["hide"]["password"]
+    if input_onetime_delay_invalid_password == rule_onetime_delay_invalid_password:
+        global onetime_delay_invalid
+        onetime_delay_invalid = 1
+        messagebox.showinfo("パスワードOK", "遅刻一時無効操作を受け付けました。")
+        print("遅刻一時無効操作受付")
+    else:
+            messagebox.showerror("パスワードエラー", "パスワードが違います。再入力してください。忘れた場合はマニュアルを読んでください。")
+            print("遅刻一時無効操作パスワードミス")
+
+def itizi_tikoku_mukou_password():
+    onetime_delay_invalid_window = tk.Toplevel(root)
+    onetime_delay_invalid_window.title("遅刻一時無効パスワード")
+    onetime_delay_invalid_window.geometry("300x200")
+    tk.Label(onetime_delay_invalid_window, text="遅刻一時無効設定用パスワードを入力してください。",font=("MSゴシック", 10)).pack()
+    input_onetime_delay_invalid_password = tk.StringVar()
+    onetime_delay_invalid_password_entory = tk.Entry(onetime_delay_invalid_window,textvariable=input_onetime_delay_invalid_password,show='*',width=30).pack()
+    tk.Button(onetime_delay_invalid_window,text="OK",command=lambda: itizi_tikoku_mukou(input_onetime_delay_invalid_password,onetime_delay_invalid_window),font=("MSゴシック", 15)).pack()
+
+def question():
+    config = configparser.ConfigParser()
+    config.read('config.ini', encoding='utf-8')
+    question_url = config["hide"]["Question_URL"]
+    webbrowser.open(question_url,new=1,autoraise=True)
+
+
+
+uketuke_status = 0
+if uketuke_status == 0:
+    uketuke_mozi = "受付停止"
+    backgroundcolor = "#ff0000"
+elif uketuke_status == 1:
+    uketuke_mozi = "受付中"
+    backgroundcolor = "#0000ff"
+
+# frame0=tk.Frame(root).grid(column=0,row=0)
+# file_label=tk.Label(frame0,text="Excelファイル：",font=("MSゴシック",10)).grid(column=0,row=0)
+# file_Entry=tk.Entry(frame0,width=40).grid(column=1,row=0,columnspan=2)
+# current_directry=os.getcwd()
+# filepath=file_Entry.get()
+frame1 = tk.Frame(root).grid(column=0, row=1)
+button_open = tk.Button(frame1, text="Excel開く", command=excelopen, font=("MSゴシック", 15)).grid(column=0, row=1,
+                                                                                              rowspan=2)
+button_kaisi = tk.Button(frame1, text="受付開始", command=lambda: jump(frame2, uketuke_label),
+                         font=("MSゴシック", 15)).grid(column=1, row=1, rowspan=2)
+button_setting = tk.Button(frame1, text="設定", command=setting, font=("MSゴシック", 15)).grid(column=2, row=1, rowspan=2)
+button_onetime_delay_invalid = tk.Button(frame1, text="遅刻一時無効", command=itizi_tikoku_mukou_password, font=("MSゴシック", 15)).grid(column=3, row=1, rowspan=2)
+button_close = tk.Button(frame1, text="終了", command=close, font=("MSゴシック", 15)).grid(column=4, row=1, rowspan=2)
+button_question = tk.Button(frame1, text="問合せ", command=question, font=("MSゴシック", 15)).grid(column=5, row=1, rowspan=2)
+if os.path.isfile("logdata/{}{:02}{:02}.txt".format(datetime.datetime.now().year, datetime.datetime.now().month, datetime.datetime.now().day)):
+    start_option = tk.IntVar(value=2)
+else:
+    start_option = tk.IntVar(value=1)
+radiobutton1 = tk.Radiobutton(frame1, text="リセット動作有り", variable=start_option, value=1)
+radiobutton1.grid(column=6, row=1, sticky=tk.W)
+radiobutton2 = tk.Radiobutton(frame1, text="リセット動作無し", variable=start_option, value=2)
+radiobutton2.grid(column=6, row=2, sticky=tk.W)
+frame2 = tk.Frame(root).grid(column=0, row=2)
+root.protocol("WM_DELETE_WINDOW", close)
+uketuke_label = tk.Label(frame2, text=uketuke_mozi, font=("MSゴシック", 60), bg=backgroundcolor, fg="#ffffff",
+                         width=7).grid(column=0, row=4, columnspan=4)
+'''
+devices=usb.core.find(find_all=True)
+for device in devices:
+    print(usb.util.get_string(device,device.iproduct))
+'''
+
+root.mainloop()
